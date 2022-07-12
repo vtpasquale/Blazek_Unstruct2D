@@ -30,6 +30,7 @@
 #include <sstream>
 #include <stdexcept>
 #include "output.h"
+#include "../thrid_party/libMeshb/Gamma.h"
 
 using namespace std;
 
@@ -41,49 +42,49 @@ using namespace std;
 /// @param iter        current iteration
 /// @exception         std::runtime_error  file cannot be opened
 ///
-void Output::Flowfield( const Geometry &geometry, const FluidProps &fluidProps,
-                        const BndConds &bndConds, int iter ) const
+void Output::Flowfield(const Geometry &geometry, const FluidProps &fluidProps,
+                       const BndConds &bndConds, int iter) const
 {
   int nn = geometry.nndInt;
-  int  i, m;
+  int i, m;
   REAL rrho[nn], u[nn], v[nn], e[nn], press[nn], temp[nn], c[nn], mach[nn],
-       ttot[nn], ptot[nn], machis[nn], ptloss[nn], pratio[nn], ptotinf,
-       gam1[nn], ggm1[nn], visc[nn];
+      ttot[nn], ptot[nn], machis[nn], ptloss[nn], pratio[nn], ptotinf,
+      gam1[nn], ggm1[nn], visc[nn];
 
   ptotinf = 0.;
   if (external)
   {
-    REAL gam1Temp    = fluidProps.gamma - 1.0;
-    REAL ggm1Temp    = fluidProps.gamma/gam1Temp;
-    ptotinf = bndConds.pinf*POW((1.0+0.5*gam1Temp*bndConds.machinf*bndConds.machinf),ggm1Temp);
+    REAL gam1Temp = fluidProps.gamma - 1.0;
+    REAL ggm1Temp = fluidProps.gamma / gam1Temp;
+    ptotinf = bndConds.pinf * POW((1.0 + 0.5 * gam1Temp * bndConds.machinf * bndConds.machinf), ggm1Temp);
   }
 
- // Compute Output data
-  for (i=0; i<geometry.nndInt; i++)
+  // Compute Output data
+  for (i = 0; i < geometry.nndInt; i++)
   {
-    rrho[i]  = 1.0/fluidProps.cv[i].dens;
-    u[i]     = fluidProps.cv[i].xmom*rrho[i];
-    v[i]     = fluidProps.cv[i].ymom*rrho[i];
-    e[i]     = fluidProps.cv[i].ener*rrho[i];
+    rrho[i] = 1.0 / fluidProps.cv[i].dens;
+    u[i] = fluidProps.cv[i].xmom * rrho[i];
+    v[i] = fluidProps.cv[i].ymom * rrho[i];
+    e[i] = fluidProps.cv[i].ener * rrho[i];
     press[i] = fluidProps.dv[i].press;
-    temp[i]  = fluidProps.dv[i].temp;
-    c[i]     = fluidProps.dv[i].csoun;
-    gam1[i]  = fluidProps.dv[i].gamma - 1.0;
-    ggm1[i]  = fluidProps.dv[i].gamma/gam1[i];
-    mach[i]  = SQRT(u[i]*u[i]+v[i]*v[i])/c[i];
-    ttot[i]  = (e[i]+press[i]*rrho[i])/fluidProps.dv[i].cpgas;
-    ptot[i]  = press[i]*POW(ttot[i]/temp[i],ggm1[i]);
+    temp[i] = fluidProps.dv[i].temp;
+    c[i] = fluidProps.dv[i].csoun;
+    gam1[i] = fluidProps.dv[i].gamma - 1.0;
+    ggm1[i] = fluidProps.dv[i].gamma / gam1[i];
+    mach[i] = SQRT(u[i] * u[i] + v[i] * v[i]) / c[i];
+    ttot[i] = (e[i] + press[i] * rrho[i]) / fluidProps.dv[i].cpgas;
+    ptot[i] = press[i] * POW(ttot[i] / temp[i], ggm1[i]);
     if (external)
     {
-      ptloss[i] = 1.0 - ptot[i]/ptotinf;
-      pratio[i] = ptotinf/press[i];
+      ptloss[i] = 1.0 - ptot[i] / ptotinf;
+      pratio[i] = ptotinf / press[i];
     }
     else
     {
-      ptloss[i] = 1.0 - ptot[i]/bndConds.ptinl;
-      pratio[i] = bndConds.ptinl/press[i];
+      ptloss[i] = 1.0 - ptot[i] / bndConds.ptinl;
+      pratio[i] = bndConds.ptinl / press[i];
     }
-    machis[i] = (POW(pratio[i],1.0/ggm1[i])-1.0)*2.0/gam1[i];
+    machis[i] = (POW(pratio[i], 1.0 / ggm1[i]) - 1.0) * 2.0 / gam1[i];
     machis[i] = MAX(machis[i], 0.0);
     machis[i] = SQRT(machis[i]);
 
@@ -93,6 +94,7 @@ void Output::Flowfield( const Geometry &geometry, const FluidProps &fluidProps,
       visc[i] = 0.0;
   }
 
+  // WRITE TO VTK File
   // open file
   stringstream str;
   str << right;
@@ -100,9 +102,10 @@ void Output::Flowfield( const Geometry &geometry, const FluidProps &fluidProps,
   str.fill('0');
   str << iter;
   string fname = fnameFlow + str.str() + ".vtk";
-  
-  ofstream stream( fname,ofstream::out | ofstream::trunc );
-  if (stream.fail()) throw runtime_error( "could not open plot file (flow field) for writing." );
+
+  ofstream stream(fname, ofstream::out | ofstream::trunc);
+  if (stream.fail())
+    throw runtime_error("could not open plot file (flow field) for writing.");
 
   // Header
   stream << "# vtk DataFile Version 3.0" << endl;
@@ -110,101 +113,157 @@ void Output::Flowfield( const Geometry &geometry, const FluidProps &fluidProps,
   stream << "ASCII" << endl;
 
   // POINTS
-  stream << endl << "DATASET UNSTRUCTURED_GRID" << endl;
-  stream << "POINTS " << geometry.nndInt  << " float" << endl;
-  for (int i = 0; i <  geometry.nndInt ; i++)
-      stream << geometry.coords[i].x << " " << geometry.coords[i].y << " 0.0" << endl;
+  stream << endl
+         << "DATASET UNSTRUCTURED_GRID" << endl;
+  stream << "POINTS " << geometry.nndInt << " float" << endl;
+  for (int i = 0; i < geometry.nndInt; i++)
+    stream << geometry.coords[i].x << " " << geometry.coords[i].y << " 0.0" << endl;
 
   // CELLS
-  stream << "CELLS " << geometry.nTria << " " << 4*geometry.nTria << endl;
+  stream << "CELLS " << geometry.nTria << " " << 4 * geometry.nTria << endl;
   for (int i = 0; i < geometry.nTria; i++)
-      stream << "3 " << geometry.tria[i].node[0] << " " << geometry.tria[i].node[1] << " " << geometry.tria[i].node[2] << endl;
+    stream << "3 " << geometry.tria[i].node[0] << " " << geometry.tria[i].node[1] << " " << geometry.tria[i].node[2] << endl;
 
   // CELL TYPES
   stream << "CELL_TYPES " << geometry.nTria << endl;
   for (int i = 0; i < geometry.nTria; i++)
-      stream << "5" << endl;
+    stream << "5" << endl;
 
-  // Write output data 
+  // Write output data
   stream << "POINT_DATA " << geometry.nndInt << endl;
-  for (m=0; m<MXQFIELD; m++)
+  for (m = 0; m < MXQFIELD; m++)
   {
     if (varOn[m])
     {
-    switch (m)
+      switch (m)
       {
-        case 0:   // density
-          stream << "SCALARS " << "rho" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << fluidProps.cv[i].dens << endl;
-          break;
-        case 1:   // u-velocity
-          stream << "SCALARS " << "u" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << u[i] << endl;
-          break;
-        case 2:   // v-velocity
-            stream << "SCALARS " << "v" << " float" << endl;
-            stream << "LOOKUP_TABLE default" << endl;
-            for (i=0; i<geometry.nndInt; i++)
-                stream << v[i] << endl;
-          break;
-        case 3:   // static pressure
-          stream << "SCALARS " << "p" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << press[i] << endl;
-          break;
-        case 4:   // total pressure
-          stream << "SCALARS " << "ptot" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << ptot[i] << endl;
-          break;
-        case 5:   // static temperature
-          stream << "SCALARS " << "temp" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << temp[i] << endl;
-          break;
-        case 6:   // total temperature
-          stream << "SCALARS " << "ttot" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << ttot[i] << endl;
-          break;
-        case 7:   // local Mach number
-          stream << "SCALARS " << "mach" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << mach[i] << endl;
-          break;
-        case 8:   // isentropic Mach number
-          stream << "SCALARS " << "machis" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << machis[i] << endl;
-          break;
-        case 9:   // total pressure loss
-          stream << "SCALARS " << "ptloss" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << ptloss[i] << endl;
-          break;
-        case 10:  // laminar viscosity coefficient
-          stream << "SCALARS " << "visc" << " float" << endl;
-          stream << "LOOKUP_TABLE default" << endl;
-          for (i=0; i<geometry.nndInt; i++)
-            stream << visc[i] << endl;
-          break;
+      case 0: // density
+        stream << "SCALARS "
+               << "rho"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << fluidProps.cv[i].dens << endl;
+        break;
+      case 1: // u-velocity
+        stream << "SCALARS "
+               << "u"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << u[i] << endl;
+        break;
+      case 2: // v-velocity
+        stream << "SCALARS "
+               << "v"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << v[i] << endl;
+        break;
+      case 3: // static pressure
+        stream << "SCALARS "
+               << "p"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << press[i] << endl;
+        break;
+      case 4: // total pressure
+        stream << "SCALARS "
+               << "ptot"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << ptot[i] << endl;
+        break;
+      case 5: // static temperature
+        stream << "SCALARS "
+               << "temp"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << temp[i] << endl;
+        break;
+      case 6: // total temperature
+        stream << "SCALARS "
+               << "ttot"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << ttot[i] << endl;
+        break;
+      case 7: // local Mach number
+        stream << "SCALARS "
+               << "mach"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << mach[i] << endl;
+        break;
+      case 8: // isentropic Mach number
+        stream << "SCALARS "
+               << "machis"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << machis[i] << endl;
+        break;
+      case 9: // total pressure loss
+        stream << "SCALARS "
+               << "ptloss"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << ptloss[i] << endl;
+        break;
+      case 10: // laminar viscosity coefficient
+        stream << "SCALARS "
+               << "visc"
+               << " float" << endl;
+        stream << "LOOKUP_TABLE default" << endl;
+        for (i = 0; i < geometry.nndInt; i++)
+          stream << visc[i] << endl;
+        break;
       }
     }
   }
-
   // stream << scientific;
   // stream.precision(8);
-
   stream.close();
+
+  // WRITE TO GAMMA SOLUTION FILE 
+  Gamma gamma;
+  gamma.FilVer = 3;
+  gamma.dim = 2;
+
+  gamma.NbrLin = geometry.nndInt;
+  gamma.SolSiz = 5;
+  gamma.NbrTyp = 5;
+  gamma.TypTab[0] = 1;
+  gamma.TypTab[1] = 1;
+  gamma.TypTab[2] = 1;
+  gamma.TypTab[3] = 1;
+  gamma.TypTab[4] = 1;
+
+  int nSolTab = gamma.NbrLin * gamma.SolSiz;
+  gamma.SolTab = new double[nSolTab];
+
+  // FUN3D nondimensionalization for refine
+  double aref = bndConds.qinf/bndConds.machinf;
+  double rhoref = bndConds.rhoinf;
+  double pref = rhoref*aref*aref;
+
+  int ss = gamma.SolSiz;
+  for (i = 0; i < geometry.nndInt; i++)
+  {
+    gamma.SolTab[ss*i  ]=fluidProps.cv[i].dens / rhoref;
+    gamma.SolTab[ss*i+1]=u[i] / aref;
+    gamma.SolTab[ss*i+2]=v[i] / aref;
+    gamma.SolTab[ss*i+3]=0.0;
+    gamma.SolTab[ss*i+4]=press[i] / pref;
+  }    
+
+  string gammaFilename = fnameFlow + ".solb"; // this can be changed to .sol for ascii format
+  gamma.writeSolutionData(gammaFilename.c_str());
 }

@@ -1,6 +1,6 @@
 # (c) J. Blazek, CFD Consulting & Analysis, support@cfd-ca.de
 
-EXEC = ../run/Unstruct2D
+EXEC = ../bin/Unstruct2D
 
 CC = g++
 LD = g++
@@ -33,7 +33,7 @@ OBJECTS = ${SOURCES:.cpp=.$(OBJ)}
 	$(CC) $(CFLAGS) $*.cpp
 
 $(EXEC): $(OBJECTS)
-	$(LD) $(LDFLAGS) -o $(EXEC) $(OBJECTS) $(LIBS)
+	$(LD) $(LDFLAGS) -o $(EXEC) $(OBJECTS) ../thrid_party/libMeshb/Gamma.o ../thrid_party/libMeshb/libMeshb/*.o ../thrid_party/libMeshb/members/*.o $(LIBS)
 
 clean:
 	$(RM) *.$(OBJ)
